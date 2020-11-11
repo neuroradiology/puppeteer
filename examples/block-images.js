@@ -14,23 +14,20 @@
  * limitations under the License.
  */
 
+'use strict';
+
 const puppeteer = require('puppeteer');
 
-(async() => {
+(async () => {
+  const browser = await puppeteer.launch();
+  const page = await browser.newPage();
+  await page.setRequestInterception(true);
+  page.on('request', (request) => {
+    if (request.resourceType() === 'image') request.abort();
+    else request.continue();
+  });
+  await page.goto('https://news.google.com/news/');
+  await page.screenshot({ path: 'news.png', fullPage: true });
 
-const browser = await puppeteer.launch();
-const page = await browser.newPage();
-await page.setRequestInterceptionEnabled(true);
-page.on('request', request => {
-  if (/\.(png|jpg|jpeg$)/.test(request.url))
-    request.abort();
-  else
-    request.continue();
-});
-await page.goto('https://bbc.com');
-await page.screenshot({path: 'news.png', fullPage: true});
-
-browser.close();
-
+  await browser.close();
 })();
-

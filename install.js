@@ -14,35 +14,76 @@
  * limitations under the License.
  */
 
-const Downloader = require('./utils/ChromiumDownloader');
-const revision = require('./package').puppeteer.chromium_revision;
-const ProgressBar = require('progress');
+/**
+ * This file is part of public API.
+ *
+ * By default, the `puppeteer` package runs this script during the installation
+ * process unless one of the env flags is provided.
+ * `puppeteer-core` package doesn't include this step at all. However, it's
+ * still possible to install a supported browser using this script when
+ * necessary.
+ */
 
-// Do nothing if the revision is already downloaded.
-if (Downloader.revisionInfo(Downloader.currentPlatform(), revision))
-  return;
+const compileTypeScriptIfRequired = require('./typescript-if-required');
 
-let allRevisions = Downloader.downloadedRevisions();
-Downloader.downloadRevision(Downloader.currentPlatform(), revision, onProgress)
-    // Remove previous chromium revisions.
-    .then(() => Promise.all(allRevisions.map(({platform, revision}) => Downloader.removeRevision(platform, revision))))
-    .catch(error => console.error('Download failed: ' + error.message));
+async function download() {
+  await compileTypeScriptIfRequired();
+  // need to ensure TS is compiled before loading the installer
+  const {
+    downloadBrowser,
+    logPolitely,
+  } = require('./lib/cjs/puppeteer/node/install');
 
-let progressBar = null;
-function onProgress(bytesTotal, delta) {
-  if (!progressBar) {
-    progressBar = new ProgressBar(`Downloading Chromium r${revision} - ${toMegabytes(bytesTotal)} [:bar] :percent :etas `, {
-      complete: '=',
-      incomplete: ' ',
-      width: 20,
-      total: bytesTotal,
-    });
+  if (process.env.PUPPETEER_SKIP_DOWNLOAD) {
+    logPolitely(
+      '**INFO** Skipping browser download. "PUPPETEER_SKIP_DOWNLOAD" environment variable was found.'
+    );
+    return;
   }
-  progressBar.tick(delta);
+  if (
+    process.env.NPM_CONFIG_PUPPETEER_SKIP_DOWNLOAD ||
+    process.env.npm_config_puppeteer_skip_download
+  ) {
+    logPolitely(
+      '**INFO** Skipping browser download. "PUPPETEER_SKIP_DOWNLOAD" was set in npm config.'
+    );
+    return;
+  }
+  if (
+    process.env.NPM_PACKAGE_CONFIG_PUPPETEER_SKIP_DOWNLOAD ||
+    process.env.npm_package_config_puppeteer_skip_download
+  ) {
+    logPolitely(
+      '**INFO** Skipping browser download. "PUPPETEER_SKIP_DOWNLOAD" was set in project config.'
+    );
+    return;
+  }
+  if (process.env.PUPPETEER_SKIP_CHROMIUM_DOWNLOAD) {
+    logPolitely(
+      '**INFO** Skipping browser download. "PUPPETEER_SKIP_CHROMIUM_DOWNLOAD" environment variable was found.'
+    );
+    return;
+  }
+  if (
+    process.env.NPM_CONFIG_PUPPETEER_SKIP_CHROMIUM_DOWNLOAD ||
+    process.env.npm_config_puppeteer_skip_chromium_download
+  ) {
+    logPolitely(
+      '**INFO** Skipping browser download. "PUPPETEER_SKIP_CHROMIUM_DOWNLOAD" was set in npm config.'
+    );
+    return;
+  }
+  if (
+    process.env.NPM_PACKAGE_CONFIG_PUPPETEER_SKIP_CHROMIUM_DOWNLOAD ||
+    process.env.npm_package_config_puppeteer_skip_chromium_download
+  ) {
+    logPolitely(
+      '**INFO** Skipping browser download. "PUPPETEER_SKIP_CHROMIUM_DOWNLOAD" was set in project config.'
+    );
+    return;
+  }
+
+  downloadBrowser();
 }
 
-function toMegabytes(bytes) {
-  let mb = bytes / 1024 / 1024;
-  return (Math.round(mb * 10) / 10) + ' Mb';
-}
-
+download();
